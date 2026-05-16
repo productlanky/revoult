@@ -28,22 +28,38 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   // 1. Listen for Auth State & Real-time User Profile
   useEffect(() => {
-    let unsubscribeSnapshot: () => void;
+    // Keep a clean functional reference handle to the unsubsriber
+    let unsubscribeSnapshot: (() => void) | null = null;
 
     const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
       if (firebaseUser) {
         setUser(firebaseUser);
         
-        // Use onSnapshot for REAL-TIME updates
         const docRef = doc(db, "users", firebaseUser.uid);
-        unsubscribeSnapshot = onSnapshot(docRef, (docSnap) => {
-          if (docSnap.exists()) {
-            setUserData(docSnap.data());
+        unsubscribeSnapshot = onSnapshot(
+          docRef, 
+          (docSnap) => {
+            if (docSnap.exists()) {
+              setUserData(docSnap.data());
+            }
+            setLoading(false); // Only stop loading once we have the data
+          },
+          (error) => {
+            // Safe silent error sink prevents global window console faulting
+            if (error.code === "permission-denied") {
+              console.log("Global profile tracking stream cleanly released.");
+            } else {
+              console.error("Firestore user snapshot error:", error);
+            }
           }
-          setLoading(false); // Only stop loading once we have the data
-        });
+        );
         
       } else {
+        // FIX: Active proactive teardown prevents lingering listener from crashing on signout
+        if (unsubscribeSnapshot) {
+          unsubscribeSnapshot();
+          unsubscribeSnapshot = null;
+        }
         setUser(null);
         setUserData(null);
         setLoading(false);
@@ -70,17 +86,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (pathname !== "/suspended") {
           router.replace("/suspended");
         }
-        return; // Halt further routing checks if suspended
+        return; 
       }
 
-      // If user is NOT suspended but somehow on the suspended page, kick them back
       if (!isSuspended && pathname === "/suspended") {
         router.replace(isAdmin ? "/manbase" : "/dashboard");
         return;
       }
 
       // Normal Authentication Routing
-      if (pathname === "/login" || pathname === "/signup" || pathname === "/") {
+      if ( pathname === "/signup" || pathname === "/") {
         router.push(isAdmin ? "/manbase" : "/dashboard");
       }
       else if (pathname.startsWith("/manbase") && !isAdmin) {

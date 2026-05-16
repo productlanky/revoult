@@ -143,33 +143,68 @@ export default function AdministrationUserPage() {
   useEffect(() => setMounted(true), []);
   const isDark = mounted ? resolvedTheme === "dark" : true;
   
-  // Real-time Streaming Architecture
+// --- REAL-TIME STREAMING ARCHITECTURE (HARDENED AGAINST LOGOUT CRASHES) ---
   useEffect(() => {
     if (!currentUser || !userId) return;
 
-    const unsubscribeUser = onSnapshot(doc(db, "users", userId), (docSnap) => {
-      if (docSnap.exists()) {
-        setUserData({ id: docSnap.id, ...docSnap.data() } as UserDoc);
-      } else {
-        router.push("/manbase/users");
+    // 1. User Profile Stream
+    const unsubscribeUser = onSnapshot(
+      doc(db, "users", userId), 
+      (docSnap) => {
+        if (docSnap.exists()) {
+          setUserData({ id: docSnap.id, ...docSnap.data() } as UserDoc);
+        } else {
+          router.push("/manbase/users");
+        }
+      },
+      (err) => {
+        if (err.code === "permission-denied") console.log("User stream detached on logout.");
+        else console.error(err);
       }
-    });
+    );
 
-    const unsubscribeTx = onSnapshot(query(collection(db, "users", userId, "transactions"), orderBy("createdAt", "desc")), (snap) => {
-      setTransactions(snap.docs.map(d => ({ id: d.id, ...d.data() } as TransactionDoc)));
-      setLoading(false);
-    });
+    // 2. Transactions Stream
+    const unsubscribeTx = onSnapshot(
+      query(collection(db, "users", userId, "transactions"), orderBy("createdAt", "desc")), 
+      (snap) => {
+        setTransactions(snap.docs.map(d => ({ id: d.id, ...d.data() } as TransactionDoc)));
+        setLoading(false);
+      },
+      (err) => {
+        if (err.code === "permission-denied") console.log("Tx stream detached on logout.");
+        else console.error(err);
+      }
+    );
 
-    const unsubscribeVaults = onSnapshot(query(collection(db, "users", userId, "vaults"), orderBy("createdAt", "desc")), (snap) => {
-      setVaults(snap.docs.map(d => ({ id: d.id, ...d.data() } as VaultDoc)));
-    });
+    // 3. Vaults Stream
+    const unsubscribeVaults = onSnapshot(
+      query(collection(db, "users", userId, "vaults"), orderBy("createdAt", "desc")), 
+      (snap) => {
+        setVaults(snap.docs.map(d => ({ id: d.id, ...d.data() } as VaultDoc)));
+      },
+      (err) => {
+        if (err.code === "permission-denied") console.log("Vaults stream detached on logout.");
+        else console.error(err);
+      }
+    );
 
-    const unsubscribeTickets = onSnapshot(query(collection(db, "users", userId, "tickets"), orderBy("createdAt", "desc")), (snap) => {
-      setTickets(snap.docs.map(d => ({ id: d.id, ...d.data() } as TicketDoc)));
-    });
+    // 4. Tickets Stream
+    const unsubscribeTickets = onSnapshot(
+      query(collection(db, "users", userId, "tickets"), orderBy("createdAt", "desc")), 
+      (snap) => {
+        setTickets(snap.docs.map(d => ({ id: d.id, ...d.data() } as TicketDoc)));
+      },
+      (err) => {
+        if (err.code === "permission-denied") console.log("Tickets stream detached on logout.");
+        else console.error(err);
+      }
+    );
 
     return () => { 
-      unsubscribeUser(); unsubscribeTx(); unsubscribeVaults(); unsubscribeTickets();
+      unsubscribeUser(); 
+      unsubscribeTx(); 
+      unsubscribeVaults(); 
+      unsubscribeTickets();
     };
   }, [currentUser, userId, router]);
 

@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation"; // Added for routing
+import { useRouter } from "next/navigation";
 import { ArrowRight, Mail, Lock, Eye, EyeOff, AlertCircle } from "lucide-react";
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "@/lib/firebase/config";
+import { doc, getDoc } from "firebase/firestore"; // Added for fetching role
+import { auth, db } from "@/lib/firebase/config"; // Added db template reference
 
 
 export default function LoginForm() {
@@ -26,16 +27,25 @@ export default function LoginForm() {
     setError(""); // Clear any previous errors
 
     try {
-      // 1. Attempt to sign in with Firebase
-      await signInWithEmailAndPassword(auth, email, password);
+      // 1. Attempt to sign in with Firebase Auth
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
       
-      // 2. On success, redirect to the overview dashboard
-      router.push("/dashboard"); 
+      // 2. Fetch the corresponding profile document from Firestore
+      const userDocRef = doc(db, "users", user.uid);
+      const userDocSnap = await getDoc(userDocRef);
+
+      // 3. Evaluate role and push to the correct ecosystem dashboard
+      if (userDocSnap.exists() && userDocSnap.data()?.role === "admin") {
+        router.push("/manbase");
+      } else {
+        router.push("/dashboard"); 
+      }
       
     } catch (err: any) {
       console.error("Firebase Auth Error:", err.code);
       
-      // 3. Handle specific Firebase errors gracefully
+      // 4. Handle specific Firebase errors gracefully
       if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
         setError("Invalid email or password. Please try again.");
       } else if (err.code === 'auth/too-many-requests') {

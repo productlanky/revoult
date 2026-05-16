@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useTheme } from "next-themes";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, PieChart, Activity, Send, HandCoins, ArrowRightLeft,
   Globe, Wallet, PiggyBank, LockKeyhole, Users, CreditCard, Smartphone,
@@ -17,8 +17,9 @@ import {
 
 // Firebase Integration
 import { useAuth } from "@/context/AuthContext";
-import { db } from "@/lib/firebase/config";
+import { auth, db } from "@/lib/firebase/config";
 import { collection, onSnapshot, query, orderBy, limit, doc, writeBatch, updateDoc } from "firebase/firestore";
+import { signOut } from "firebase/auth";
 
 // --- TYPESCRIPT INTERFACES ---
 interface NotificationDoc {
@@ -54,7 +55,7 @@ const NAVIGATION = [
     title: "Accounts & Cards",
     items: [
       { name: "Main Wallets", href: "/dashboard/wallets", icon: Wallet },
-      { name: "High-Yield Vaults", href: "/dashboard/vaults", icon: PiggyBank }, 
+      { name: "High-Yield Vaults", href: "/dashboard/vaults", icon: PiggyBank },
       { name: "Virtual Cards", href: "/dashboard/cards/virtual", icon: Smartphone },
     ]
   },
@@ -65,7 +66,7 @@ const NAVIGATION = [
       { name: "Stocks & ETFs", href: "/dashboard/stocks", icon: TrendingUp },
     ]
   },
-   {
+  {
     title: "Management",
     items: [
       { name: "Tickets", href: "/dashboard/support", icon: Ticket },
@@ -85,7 +86,7 @@ const MOBILE_NAV = [
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user, userData } = useAuth(); // Connect to Firebase
-  
+  const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -102,7 +103,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [kycFileBack, setKycFileBack] = useState<File | null>(null);
   const [isUploadingKyc, setIsUploadingKyc] = useState(false);
   const [kycError, setKycError] = useState("");
-  
+
   const fileInputFrontRef = useRef<HTMLInputElement>(null);
   const fileInputBackRef = useRef<HTMLInputElement>(null);
   const requiresBackSide = kycType !== "Passport";
@@ -128,21 +129,33 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     "Management": false,
   });
 
-  // --- FETCH NOTIFICATIONS (REAL-TIME) ---
+// --- FETCH NOTIFICATIONS (REAL-TIME) ---
   useEffect(() => {
     if (!user) return;
     const notifQ = query(collection(db, "users", user.uid, "notifications"), orderBy("createdAt", "desc"), limit(20));
-    const unsubscribe = onSnapshot(notifQ, (snapshot) => {
-      setNotifications(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as NotificationDoc)));
-    });
+    
+    const unsubscribe = onSnapshot(
+      notifQ, 
+      (snapshot) => {
+        setNotifications(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as NotificationDoc)));
+      },
+      (error) => {
+        if (error.code === "permission-denied") {
+          console.log("User notifications stream safely paused during auth state change.");
+        } else {
+          console.error("Firestore error:", error);
+        }
+      }
+    );
+    
     return () => unsubscribe();
   }, [user]);
-
+  
   // --- MARK ALL AS READ (BATCH WRITE) ---
   const handleMarkAllAsRead = async () => {
     if (!user || unreadCount === 0) return;
     const batch = writeBatch(db);
-    
+
     notifications.filter(n => !n.isRead).forEach(notif => {
       const ref = doc(db, "users", user.uid, "notifications", notif.id);
       batch.update(ref, { isRead: true });
@@ -225,6 +238,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     setExpandedCategories(prev => ({ ...prev, [title]: !prev[title] }));
   };
 
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      router.push("/signin");
+    } catch (error) {
+      console.error("logout failure:", error);
+    }
+  };
+
   // Extract User Details safely
   const firstName = userData?.firstName || "Satoshi";
   const lastName = userData?.lastName || "Nakamoto";
@@ -234,7 +256,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const formatTime = (isoString: string) => {
     const date = new Date(isoString);
-    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
   // --- DESKTOP & MOBILE DRAWER SIDEBAR CONTENT ---
@@ -270,7 +292,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <Link href="/dashboard/profile" className={`flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] font-medium transition-all ${isDarkMode ? 'text-slate-300 hover:text-white hover:bg-white/[0.06]' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'}`}><UserIcon className="w-4 h-4 text-slate-500" /> My Profile</Link>
             <Link href="/dashboard/settings" className={`flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] font-medium transition-all ${isDarkMode ? 'text-slate-300 hover:text-white hover:bg-white/[0.06]' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'}`}><Settings className="w-4 h-4 text-slate-500" /> Settings & Privacy</Link>
             <div className={`w-full h-px my-1 ${isDarkMode ? 'bg-white/[0.04]' : 'bg-slate-100'}`} />
-            <button className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] font-medium transition-all ${isDarkMode ? 'text-rose-400 hover:text-rose-300 hover:bg-rose-500/10' : 'text-rose-600 hover:text-rose-700 hover:bg-rose-50'}`}><LogOut className="w-4 h-4 text-rose-500/70" /> Sign Out</button>
+            <button onClick={handleLogout} className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] font-medium transition-all ${isDarkMode ? 'text-rose-400 hover:text-rose-300 hover:bg-rose-500/10' : 'text-rose-600 hover:text-rose-700 hover:bg-rose-50'}`}><LogOut className="w-4 h-4 text-rose-500/70" /> Sign Out</button>
           </div>
         </div>
       </div>
@@ -348,21 +370,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className="fixed inset-0 z-40" onClick={() => setIsNotificationOpen(false)} />
           <div className={`absolute top-[70px] right-4 sm:right-8 w-[320px] sm:w-[360px] max-h-[450px] flex flex-col rounded-[24px] border shadow-2xl z-50 transform origin-top-right transition-all duration-300 ${isDarkMode ? 'bg-[#111114]/95 backdrop-blur-2xl border-white/10 shadow-[0_20px_40px_rgba(0,0,0,0.8)]' : 'bg-white/95 backdrop-blur-2xl border-slate-200 shadow-xl'}`}>
             <div className="p-5 border-b border-slate-200 dark:border-white/10 flex justify-between items-center shrink-0">
-               <h3 className="font-bold text-sm tracking-tight">Notifications</h3>
-               {unreadCount > 0 && (
-                 <button onClick={handleMarkAllAsRead} className="text-[11px] text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 font-bold transition-colors">
-                   Mark all read
-                 </button>
-               )}
+              <h3 className="font-bold text-sm tracking-tight">Notifications</h3>
+              {unreadCount > 0 && (
+                <button onClick={handleMarkAllAsRead} className="text-[11px] text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 font-bold transition-colors">
+                  Mark all read
+                </button>
+              )}
             </div>
-            
+
             <div className="overflow-y-auto flex-1 p-2 space-y-1">
               {notifications.length === 0 ? (
-                 <div className="flex flex-col items-center justify-center py-10 text-center">
-                    <Bell className="w-8 h-8 text-slate-300 dark:text-white/10 mb-3" />
-                    <p className="text-sm font-bold text-slate-900 dark:text-white">You're all caught up!</p>
-                    <p className="text-xs text-slate-500 mt-1 max-w-[200px] mx-auto">New alerts for transfers, deposits, and account activity will appear here.</p>
-                 </div>
+                <div className="flex flex-col items-center justify-center py-10 text-center">
+                  <Bell className="w-8 h-8 text-slate-300 dark:text-white/10 mb-3" />
+                  <p className="text-sm font-bold text-slate-900 dark:text-white">You're all caught up!</p>
+                  <p className="text-xs text-slate-500 mt-1 max-w-[200px] mx-auto">New alerts for transfers, deposits, and account activity will appear here.</p>
+                </div>
               ) : (
                 notifications.map((notif) => (
                   <div key={notif.id} className={`relative p-4 rounded-xl flex gap-3 transition-colors ${!notif.isRead ? (isDarkMode ? 'bg-white/5' : 'bg-slate-50') : 'hover:bg-slate-50 dark:hover:bg-white/[0.02]'}`}>
@@ -370,7 +392,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       <div className="absolute top-4 left-2 w-1.5 h-1.5 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.8)]" />
                     )}
                     <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-white/10 flex items-center justify-center shrink-0 ml-2">
-                       {notif.type === 'transfer' ? <ArrowRightLeft className="w-4 h-4 text-slate-600 dark:text-slate-300" /> : <Bell className="w-4 h-4 text-slate-600 dark:text-slate-300" />}
+                      {notif.type === 'transfer' ? <ArrowRightLeft className="w-4 h-4 text-slate-600 dark:text-slate-300" /> : <Bell className="w-4 h-4 text-slate-600 dark:text-slate-300" />}
                     </div>
                     <div className="flex-1 min-w-0 pr-2">
                       <p className="text-[13px] font-bold text-slate-900 dark:text-white leading-tight">{notif.title}</p>
@@ -392,7 +414,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <button onClick={() => setKycModalOpen(false)} className="absolute top-6 right-6 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">
               <X className="w-5 h-5" />
             </button>
-            
+
             <div className="flex items-center gap-4 mb-6 mt-2">
               <div className="w-12 h-12 rounded-2xl bg-cyan-50 dark:bg-cyan-500/10 flex items-center justify-center border border-cyan-100 dark:border-cyan-500/20 shrink-0">
                 <ShieldCheck className="w-6 h-6 text-cyan-600 dark:text-cyan-400" />
@@ -412,8 +434,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <form onSubmit={handleKycSubmit} className="space-y-5">
               <div>
                 <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest pl-1 block mb-2">Document Type</label>
-                <select 
-                  value={kycType} 
+                <select
+                  value={kycType}
                   onChange={(e) => {
                     setKycType(e.target.value);
                     setKycFileFront(null);
@@ -455,8 +477,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 )}
               </div>
 
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 disabled={isUploadingKyc || !kycFileFront || (requiresBackSide && !kycFileBack)}
                 className="w-full py-4 rounded-xl font-bold text-sm bg-cyan-500 hover:bg-cyan-400 text-black transition-all flex items-center justify-center gap-2 disabled:opacity-50 mt-4 shadow-lg shadow-cyan-500/20"
               >
@@ -526,7 +548,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <Bell className="w-[18px] h-[18px]" />
               {unreadCount > 0 && <span className={`absolute top-2.5 right-2.5 w-1.5 h-1.5 bg-rose-500 rounded-full shadow-[0_0_8px_rgba(244,63,94,1)]`} />}
             </button>
-            
+
             <Link href="/dashboard/wallets" className={`flex items-center gap-2 ml-1 px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all active:scale-95 ${isDarkMode ? 'bg-white text-black hover:bg-slate-200 shadow-[0_0_15px_rgba(255,255,255,0.15)]' : 'bg-black text-white hover:bg-slate-800 shadow-md'}`}>
               <Plus className="w-4 h-4" /> Add Money
             </Link>
@@ -539,35 +561,35 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className="absolute inset-0 opacity-[0.015] mix-blend-overlay pointer-events-none" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=%220 0 200 200%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22n%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.8%22 numOctaves=%223%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23n)%22/%3E%3C/svg%3E")' }} />
 
           <div className="relative z-10 max-w-7xl mx-auto min-h-full">
-            
+
             {/* GLOBAL KYC ALERTS */}
             {kycStatus === 'pending' && (
               <div className="mb-6 p-4 rounded-2xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 flex items-start gap-3 shadow-sm">
-                 <Clock className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-                 <div>
-                    <h3 className="text-sm font-bold text-amber-700 dark:text-amber-400">Verification in Review</h3>
-                    <p className="text-xs text-amber-600 dark:text-amber-500/80 mt-1 leading-relaxed">Your identity documents are currently being reviewed by our team. Some account features may be limited until approved.</p>
-                 </div>
+                <Clock className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                <div>
+                  <h3 className="text-sm font-bold text-amber-700 dark:text-amber-400">Verification in Review</h3>
+                  <p className="text-xs text-amber-600 dark:text-amber-500/80 mt-1 leading-relaxed">Your identity documents are currently being reviewed by our team. Some account features may be limited until approved.</p>
+                </div>
               </div>
             )}
-            
+
             {kycStatus === 'rejected' && (
               <div className="mb-6 p-4 sm:p-5 rounded-2xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
-                 <div className="flex items-start gap-3">
-                     <AlertTriangle className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
-                     <div>
-                        <h3 className="text-sm font-bold text-rose-700 dark:text-rose-400">Verification Rejected</h3>
-                        <p className="text-xs text-rose-600 dark:text-rose-500/80 mt-1 leading-relaxed">
-                          {userData?.kycRejectionReason || "Your uploaded documents could not be verified. Please upload a clearer image or a different document."}
-                        </p>
-                     </div>
-                 </div>
-                 <button 
-                    onClick={() => setKycModalOpen(true)} 
-                    className="w-full sm:w-auto px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl whitespace-nowrap shrink-0 transition-colors shadow-md active:scale-95"
-                 >
-                    Re-Verify Identity
-                 </button>
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
+                  <div>
+                    <h3 className="text-sm font-bold text-rose-700 dark:text-rose-400">Verification Rejected</h3>
+                    <p className="text-xs text-rose-600 dark:text-rose-500/80 mt-1 leading-relaxed">
+                      {userData?.kycRejectionReason || "Your uploaded documents could not be verified. Please upload a clearer image or a different document."}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setKycModalOpen(true)}
+                  className="w-full sm:w-auto px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl whitespace-nowrap shrink-0 transition-colors shadow-md active:scale-95"
+                >
+                  Re-Verify Identity
+                </button>
               </div>
             )}
 
