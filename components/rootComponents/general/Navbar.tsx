@@ -159,13 +159,13 @@ export default function Navbar() {
               <span>Press CMD+K to search</span>
             </div> */}
 
-            <button className={`w-full h-16 rounded-2xl bg-white text-black font-bold text-lg hover:bg-blue-50 active:scale-[0.98] transition-all duration-500 flex items-center justify-center gap-3 shadow-[0_0_60px_-15px_rgba(255,255,255,0.3)] ${mobileOpen ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`} style={{ transitionDelay: mobileOpen ? "450ms" : "0ms" }}>
+            <Link href={'/signup'} className={`w-full h-16 rounded-2xl bg-white text-black font-bold text-lg hover:bg-blue-50 active:scale-[0.98] transition-all duration-500 flex items-center justify-center gap-3 shadow-[0_0_60px_-15px_rgba(255,255,255,0.3)] ${mobileOpen ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`} style={{ transitionDelay: mobileOpen ? "450ms" : "0ms" }}>
               Open Free Account <ArrowUpRight className="w-5 h-5" />
-            </button>
+            </Link>
 
-            <button className={`w-full h-14 rounded-2xl bg-white/[0.03] text-white font-medium text-base border border-white/[0.06] hover:bg-white/[0.08] hover:border-white/10 active:scale-[0.98] transition-all duration-500 ${mobileOpen ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`} style={{ transitionDelay: mobileOpen ? "500ms" : "0ms" }}>
+            <Link href={'/signin'} className={`w-full h-14 rounded-2xl bg-white/[0.03] text-white font-medium text-base border border-white/[0.06] hover:bg-white/[0.08] hover:border-white/10 active:scale-[0.98] transition-all duration-500 ${mobileOpen ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`} style={{ transitionDelay: mobileOpen ? "500ms" : "0ms" }}>
               Sign In securely
-            </button>
+            </Link>
           </div>
         </div>
       </div>
