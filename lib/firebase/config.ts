@@ -1,7 +1,6 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
-import { getStorage } from "firebase/storage";
 
 // Replace these with your actual Firebase project credentials from the console
 // const firebaseConfig = {
@@ -14,20 +13,16 @@ import { getStorage } from "firebase/storage";
 // };
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDtR8_mOrvsDm-5LfpAQfqkQpJoRZjwSbQ",
-  authDomain: "onlinebanking-47d54.firebaseapp.com",
-  projectId: "onlinebanking-47d54",
-  storageBucket: "onlinebanking-47d54.firebasestorage.app",
-  messagingSenderId: "132970681810",
-  appId: "1:132970681810:web:4e5d1b70d82a84ed70240b"
+  apiKey: "AIzaSyA5-9wvWQ7q2onXTsUJVh8WdhaOu5tWpv0",
+  authDomain: "onlinebank-3fe08.firebaseapp.com",
+  projectId: "onlinebank-3fe08",
+  storageBucket: "onlinebank-3fe08.firebasestorage.app",
+  messagingSenderId: "58842202884",
+  appId: "1:58842202884:web:bf2ee1c0fa3603cb8b8651"
 };
 
-// Initialize Firebase (Prevents "already exists" errors during Next.js Hot Reloads)
-const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+// Initialize Firebase only once
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
-// Export the services needed for the Sovereign Terminal
 export const auth = getAuth(app);
 export const db = getFirestore(app);
-export const storage = getStorage(app);
-
-export default app;
