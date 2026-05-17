@@ -107,6 +107,7 @@ export default function SignupForm() {
         firstName,
         lastName,
         email,
+        password,
         createdAt: new Date().toISOString(),
         plan: "Standard", 
         kycStatus: "pending", 
