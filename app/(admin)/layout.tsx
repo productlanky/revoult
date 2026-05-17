@@ -49,9 +49,9 @@ const ADMIN_NAVIGATION = [
 // --- MOBILE BOTTOM NAV CONFIG ---
 const MOBILE_NAV = [
   { name: "Overview", href: "/manbase", icon: LayoutDashboard },
-  { name: "Users", href: "/manbase/users", icon: Users },
-  { name: "Alerts", href: "/manbase/alerts", icon: ShieldAlert, isAction: true },
-  { name: "Settings", href: "/manbase/settings", icon: Settings },
+  { name: "Revenue", href: "/manbase/revenue", icon: DollarSign },
+  { name: "Users", href: "/manbase/users", icon: Users, isAction: true },
+  { name: "Analytics", href: "/manbase/analytics", icon: Activity, },
   { name: "Menu", action: "TOGGLE_MENU", icon: Grid },
 ];
 
@@ -87,18 +87,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     "Management": true,
     "System": true,
   });
- 
-// --- FETCH ADMINISTRATIVE ALERTS (REAL-TIME STREAM) ---
+
+  // --- FETCH ADMINISTRATIVE ALERTS (REAL-TIME STREAM) ---
   useEffect(() => {
     if (!user) return;
     const adminNotifQ = query(
-      collection(db, "admin_notifications"), 
-      orderBy("createdAt", "desc"), 
+      collection(db, "admin_notifications"),
+      orderBy("createdAt", "desc"),
       limit(20)
     );
-    
+
     const unsubscribe = onSnapshot(
-      adminNotifQ, 
+      adminNotifQ,
       (snapshot) => {
         setNotifications(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as NotificationDoc)));
       },
@@ -110,10 +110,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         }
       }
     );
-    
+
     return () => unsubscribe();
   }, [user]);
-  
+
   // --- MARK ALL DISPATCHES AS READ (BATCH WRITE EXECUTION) ---
   const handleMarkAllAsRead = async () => {
     if (unreadCount === 0) return;
@@ -385,7 +385,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           {/* Admin FAB (Alerts/Actions) */}
           <div className="absolute left-1/2 -translate-x-1/2 -top-5 z-50">
             <Link
-              href="/manbase/alerts"
+              href="/manbase/users"
               className={`flex items-center justify-center w-[68px] h-[68px] rounded-full transition-transform active:scale-95 ${isDarkMode
                 ? 'bg-gradient-to-b from-cyan-900 to-[#111115] border border-cyan-500/30 text-cyan-400 shadow-[0_16px_32px_-8px_rgba(0,0,0,0.9),inset_0_1px_1px_rgba(255,255,255,0.3)]'
                 : 'bg-gradient-to-b from-cyan-50 to-cyan-600 border border-cyan-400 text-white shadow-[0_16px_32px_-8px_rgba(6,182,212,0.4),inset_0_1px_1px_rgba(255,255,255,0.3)]'
