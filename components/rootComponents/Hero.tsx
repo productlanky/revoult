@@ -144,7 +144,7 @@ export default function Hero() {
   return (
     <section
       ref={containerRef}
-      className="relative min-h-[100dvh] w-full bg-[#030303] overflow-hidden flex items-center"
+      className="relative min-h-[100dvh] w-full bg-[#030303] overflow-hidden flex items-center pt-20"
     >
       {/* --- AMBIENT STUDIO LIGHTING --- */}
       <div className="absolute top-[5%] left-[50%] -translate-x-1/2 w-[90vw] h-[60vh] bg-indigo-900/15 blur-[150px] rounded-full pointer-events-none" />
