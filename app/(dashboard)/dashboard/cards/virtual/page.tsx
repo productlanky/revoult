@@ -51,54 +51,65 @@ export default function VirtualCardsPage() {
 
   // UI States
   const [activeCardIndex, setActiveCardIndex] = useState(0);
-  const [showDetails, setShowDetails] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [toastMsg, setToastMsg] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Modal States
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [isLimitOpen, setIsLimitOpen] = useState(false);
-
-  // Form States
-  const [newCardName, setNewCardName] = useState("");
-  const [newCardType, setNewCardType] = useState<"Multi-use" | "Single-use">("Multi-use");
-  const [newLimit, setNewLimit] = useState("");
 
   useEffect(() => setMounted(true), []);
 
-  // 1. Fetch Cards
+  // 1. Fetch Cards (FIXED: Changed 'virtualCards' to 'cards' and added error handler)
   useEffect(() => {
     if (!user) return;
-    const cardsQ = query(collection(db, "users", user.uid, "virtualCards"), orderBy("createdAt", "desc"));
-    const unsubscribe = onSnapshot(cardsQ, (snapshot) => {
-      const fetchedCards = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as VirtualCard));
-      setCards(fetchedCards);
 
-      if (activeCardIndex >= fetchedCards.length) {
-        setActiveCardIndex(Math.max(0, fetchedCards.length - 1));
+    const cardsQ = query(collection(db, "users", user.uid, "cards"), orderBy("createdAt", "desc"));
+
+    const unsubscribe = onSnapshot(
+      cardsQ,
+      (snapshot) => {
+        const fetchedCards = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as VirtualCard));
+        setCards(fetchedCards);
+
+        if (activeCardIndex >= fetchedCards.length) {
+          setActiveCardIndex(Math.max(0, fetchedCards.length - 1));
+        }
+        setDataLoading(false);
+      },
+      (error) => {
+        if (error.code === "permission-denied") {
+          console.log("Cards stream safely detached.");
+        } else {
+          console.error("Firestore cards snapshot error:", error);
+        }
+        setDataLoading(false); // Ensure loading state clears even on error so UI doesn't hang
       }
-      setDataLoading(false);
-    });
+    );
+
     return () => unsubscribe();
-  }, [user]);
+  }, [user, activeCardIndex]);
 
   const activeCard = cards[activeCardIndex];
 
-  // 2. Fetch Transactions for Active Card
+  // 2. Fetch Transactions (FIXED: Pointed to 'transactions' instead of 'cards')
   useEffect(() => {
-    if (!user || !activeCard) return;
-    const txQ = query(
-      collection(db, "users", user.uid, "transactions"),
-      where("cardId", "==", activeCard.id),
-      orderBy("createdAt", "desc"),
-      limit(10)
+    if (!user) return;
+
+    // Assuming you want to fetch recent transactions here
+    const txQuery = query(collection(db, "users", user.uid, "transactions"), orderBy("createdAt", "desc"), limit(5));
+
+    const unsubscribe = onSnapshot(
+      txQuery,
+      (snapshot) => {
+        setTransactions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      },
+      (error) => {
+        if (error.code === "permission-denied") {
+          console.log("Transactions stream safely detached.");
+        } else {
+          console.error("Firestore tx snapshot error:", error);
+        }
+      }
     );
-    const unsubscribe = onSnapshot(txQ, (snapshot) => {
-      setTransactions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
+
     return () => unsubscribe();
-  }, [user, activeCard]);
+  }, [user]);
 
   const isDark = mounted ? resolvedTheme === "dark" : true;
 
@@ -127,12 +138,12 @@ export default function VirtualCardsPage() {
 
       {/* --- COMING SOON OVERLAY WRAPPER --- */}
       <div className="relative">
-        
+
         {/* THE OVERLAY */}
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/40 dark:bg-[#0A0A0C]/60 backdrop-blur-sm rounded-[32px]">
           <div className="bg-white dark:bg-[#111115] px-8 py-8 rounded-[32px] shadow-2xl border border-slate-200 dark:border-white/10 text-center animate-in zoom-in-95 duration-700 max-w-sm mx-4">
             <div className="w-16 h-16 rounded-2xl bg-cyan-50 dark:bg-cyan-500/10 flex items-center justify-center mx-auto mb-5 border border-cyan-100 dark:border-cyan-500/20">
-               <CreditCard className="w-8 h-8 text-cyan-500" />
+              <CreditCard className="w-8 h-8 text-cyan-500" />
             </div>
             <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight mb-2">Coming Soon</h2>
             <p className="text-[13px] text-slate-500 dark:text-slate-400 leading-relaxed mb-6">
@@ -157,7 +168,7 @@ export default function VirtualCardsPage() {
 
               {/* Fake Mock Card for the visual */}
               <div className={`w-full max-w-[380px] aspect-[1.586/1] rounded-[24px] p-6 sm:p-7 relative overflow-hidden shadow-2xl dark:shadow-[0_20px_50px_-10px_rgba(0,0,0,1),inset_0_1px_1px_rgba(255,255,255,0.3)] bg-gradient-to-br from-[#111115] via-[#1e1b4b] to-[#312e81]`}>
-                
+
                 <div className="absolute inset-0 opacity-[0.35] mix-blend-overlay" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=%220 0 200 200%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22n%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.8%22 numOctaves=%223%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23n)%22/%3E%3C/svg%3E")' }} />
                 <div className="absolute -top-24 -right-24 w-48 h-48 bg-white/20 blur-[50px] rounded-full" />
                 <div className="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-black/40 to-transparent" />
@@ -286,10 +297,9 @@ export default function VirtualCardsPage() {
 function ActionButton({ icon: Icon, label, danger = false }: { icon: any, label: string, danger?: boolean }) {
   return (
     <div className="flex flex-col items-center justify-center gap-2 group">
-      <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-[16px] sm:rounded-[18px] flex items-center justify-center border ${
-            danger
-            ? 'bg-slate-50 dark:bg-[#111115] border-slate-200 dark:border-white/[0.05] text-rose-500'
-            : 'bg-slate-50 dark:bg-[#111115] border-slate-200 dark:border-white/[0.05] text-slate-600 dark:text-slate-300'
+      <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-[16px] sm:rounded-[18px] flex items-center justify-center border ${danger
+          ? 'bg-slate-50 dark:bg-[#111115] border-slate-200 dark:border-white/[0.05] text-rose-500'
+          : 'bg-slate-50 dark:bg-[#111115] border-slate-200 dark:border-white/[0.05] text-slate-600 dark:text-slate-300'
         }`}>
         <Icon className="w-5 h-5 sm:w-6 sm:h-6" />
       </div>

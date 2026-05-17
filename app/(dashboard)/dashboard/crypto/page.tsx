@@ -52,13 +52,14 @@ export default function CryptoPage() {
 
   useEffect(() => setMounted(true), []);
 
-  // 1. Fetch Live Crypto Prices (Silent Fallback if Adblocker blocks API)
+  // 1. Fetch Live Crypto Prices (Routed through local API to bypass CORS/Adblockers)
   useEffect(() => {
     async function fetchPrices() {
       try {
         const ids = ASSETS.map(a => a.id).join(',');
-        const res = await fetch(`https://api.coincap.io/v2/assets?ids=${ids}`);
-        if (!res.ok) throw new Error("API rate limit");
+        // POINT TO YOUR NEW LOCAL PROXY ROUTE
+        const res = await fetch(`/api/crypto?ids=${ids}`);
+        if (!res.ok) throw new Error("API error");
 
         const json = await res.json();
         if (json && json.data) {
@@ -72,6 +73,7 @@ export default function CryptoPage() {
           setLiveRates(newRates);
         }
       } catch (error) {
+        // Safe silent fallback mechanism
         setLiveRates(prev => {
           const simulated = { ...prev };
           Object.keys(simulated).forEach(sym => {
@@ -86,6 +88,37 @@ export default function CryptoPage() {
     const interval = setInterval(fetchPrices, 15000);
     return () => clearInterval(interval);
   }, []);
+
+  // 2. Fetch Crypto Transactions (Added Error Catcher)
+  useEffect(() => {
+    if (!user) return;
+
+    const txQ = query(
+      collection(db, "users", user.uid, "transactions"),
+      where("category", "==", "Crypto"),
+      orderBy("createdAt", "desc"),
+      limit(10)
+    );
+
+    const unsubscribe = onSnapshot(
+      txQ,
+      (snapshot) => {
+        setTransactions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        setDataLoading(false);
+      },
+      (error) => {
+        // Safe silent error sink prevents global window console faulting on logout
+        if (error.code === "permission-denied") {
+          console.log("Crypto transactions stream safely detached during logout.");
+        } else {
+          console.error("Firestore crypto tx snapshot error:", error);
+        }
+        setDataLoading(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [user]);
 
   // 2. Fetch Crypto Transactions
   useEffect(() => {
@@ -414,10 +447,10 @@ export default function CryptoPage() {
                   (tradeAction === 'sell' && parseFloat(tradeAmount) > (userData.cryptoBalances?.[tradeAsset] || 0))
                 }
                 className={`w-full mt-4 py-4 rounded-xl font-black text-[14px] transition-all flex justify-center items-center shadow-xl ${(tradeAction === 'buy' && parseFloat(tradeAmount) > usdWalletBalance) || (tradeAction === 'sell' && parseFloat(tradeAmount) > (userData.cryptoBalances?.[tradeAsset] || 0))
-                    ? 'bg-rose-500 text-white cursor-not-allowed shadow-rose-500/20'
-                    : !tradeAmount
-                      ? 'bg-slate-100 dark:bg-white/5 text-slate-400 cursor-not-allowed'
-                      : 'bg-cyan-600 hover:bg-cyan-700 dark:bg-cyan-500 dark:hover:bg-cyan-400 text-white dark:text-slate-900 active:scale-95 shadow-cyan-500/20'
+                  ? 'bg-rose-500 text-white cursor-not-allowed shadow-rose-500/20'
+                  : !tradeAmount
+                    ? 'bg-slate-100 dark:bg-white/5 text-slate-400 cursor-not-allowed'
+                    : 'bg-cyan-600 hover:bg-cyan-700 dark:bg-cyan-500 dark:hover:bg-cyan-400 text-white dark:text-slate-900 active:scale-95 shadow-cyan-500/20'
                   }`}
               >
                 {isSubmitting

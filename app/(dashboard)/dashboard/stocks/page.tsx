@@ -55,19 +55,16 @@ export default function StocksPage() {
 
   useEffect(() => setMounted(true), []);
 
-  // 1. Fetch Real-Time Market Data via Yahoo Finance Proxy
+  // 1. Fetch Real-Time Market Data via Custom Next.js API
   useEffect(() => {
     async function fetchPrices() {
       try {
         const promises = STOCKS.map(async (stock) => {
-          // Encoded Yahoo Finance Chart API URL
-          const url = encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${stock.symbol}?interval=1d&range=2d`);
-          // Bypassing CORS to get real Wall Street data
-          const res = await fetch(`https://api.allorigins.win/get?url=${url}`);
-          if (!res.ok) throw new Error("Proxy error");
+          // Call your local proxy route instead of the public CORS proxy
+          const res = await fetch(`/api/stocks?symbol=${stock.symbol}`);
+          if (!res.ok) throw new Error("API error");
 
-          const data = await res.json();
-          const parsed = JSON.parse(data.contents);
+          const parsed = await res.json();
           const result = parsed.chart.result[0];
 
           const currentPrice = result.meta.regularMarketPrice;
@@ -83,8 +80,7 @@ export default function StocksPage() {
         setLivePrices(newPrices);
 
       } catch (err) {
-        console.warn("Using simulated live market data due to proxy limitations.");
-        // Algorithmic simulation to keep the UI moving if the free proxy rate-limits us
+        console.warn("Using simulated live market data due to API limitations.", err);
         setLivePrices(prev => {
           const simulated = { ...prev };
           Object.keys(simulated).forEach(sym => {
@@ -100,14 +96,32 @@ export default function StocksPage() {
     return () => clearInterval(interval);
   }, []);
 
-  // 2. Fetch Recent Activity
+  // 2. Fetch Recent Activity (Hardened against Logout crashes)
   useEffect(() => {
     if (!user) return;
-    const txQ = query(collection(db, "users", user.uid, "transactions"), orderBy("createdAt", "desc"), limit(15));
-    const unsubscribe = onSnapshot(txQ, (snapshot) => {
-      const allTx = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setTransactions(allTx.filter((tx: any) => tx.category === "Stock"));
-    });
+
+    const txQ = query(
+      collection(db, "users", user.uid, "transactions"),
+      orderBy("createdAt", "desc"),
+      limit(15)
+    );
+
+    // Added the error callback argument!
+    const unsubscribe = onSnapshot(
+      txQ,
+      (snapshot) => {
+        const allTx = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setTransactions(allTx.filter((tx: any) => tx.category === "Stock"));
+      },
+      (error) => {
+        if (error.code === "permission-denied") {
+          console.log("Stocks transaction stream safely detached.");
+        } else {
+          console.error("Firestore stocks tx error:", error);
+        }
+      }
+    );
+
     return () => unsubscribe();
   }, [user]);
 
@@ -385,8 +399,8 @@ export default function StocksPage() {
                 <button
                   key={time}
                   className={`px-3 sm:px-4 py-1.5 rounded-full text-[11px] font-bold transition-all ${idx === 2
-                      ? 'bg-slate-900 dark:bg-white text-white dark:text-black shadow-md'
-                      : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                    ? 'bg-slate-900 dark:bg-white text-white dark:text-black shadow-md'
+                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
                     }`}
                 >
                   {time}

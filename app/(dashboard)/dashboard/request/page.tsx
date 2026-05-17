@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { useTheme } from "next-themes";
-import { 
-  QrCode, Copy, Share, Search, 
-  CheckCircle2, Clock, XCircle, ChevronRight, 
+import {
+  QrCode, Copy, Share, Search,
+  CheckCircle2, Clock, XCircle, ChevronRight,
   Link as LinkIcon, MessageSquare, Smartphone,
   Loader2, Sparkles, HandCoins, X
 } from "lucide-react";
@@ -29,7 +29,7 @@ interface PaymentRequest {
 export default function RequestFundsPage() {
   const { resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
-  
+
   // Real-time Auth & Data
   const { user, userData, loading: authLoading } = useAuth();
   const [requests, setRequests] = useState<PaymentRequest[]>([]);
@@ -50,11 +50,26 @@ export default function RequestFundsPage() {
   // Fetch Live Requests
   useEffect(() => {
     if (!user) return;
+
     const reqQ = query(collection(db, "users", user.uid, "requests"), orderBy("createdAt", "desc"), limit(20));
-    const unsubscribe = onSnapshot(reqQ, (snapshot) => {
-      setRequests(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PaymentRequest)));
-      setLoading(false);
-    });
+
+    // Added the error callback as the third argument
+    const unsubscribe = onSnapshot(
+      reqQ,
+      (snapshot) => {
+        setRequests(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PaymentRequest)));
+        setLoading(false);
+      },
+      (error) => {
+        if (error.code === "permission-denied") {
+          console.log("Requests stream safely detached during logout.");
+        } else {
+          console.error("Firestore requests snapshot error:", error);
+        }
+        setLoading(false); // Stop the loading spinner even if it disconnects
+      }
+    );
+
     return () => unsubscribe();
   }, [user]);
 
@@ -105,7 +120,7 @@ export default function RequestFundsPage() {
       const username = userData.firstName?.toLowerCase() || "pay";
       const customLink = `https://sixpay.me/${username}/${numAmount}`;
       handleCopyLink(customLink);
-      
+
       setRequestAmount("");
       setRequestNote("");
     } catch (error) {
@@ -120,7 +135,7 @@ export default function RequestFundsPage() {
 
   return (
     <div className="w-full max-w-6xl mx-auto pb-12 animate-in fade-in duration-700 space-y-6 sm:space-y-8 relative">
-      
+
       {/* --- ELITE TOAST NOTIFICATION --- */}
       <div className={`fixed bottom-6 lg:bottom-10 left-1/2 -translate-x-1/2 z-50 transition-all duration-300 ease-out ${toastMsg ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8 pointer-events-none'}`}>
         <div className="bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-5 py-3 rounded-full shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)] border border-white/10 dark:border-black/10 font-bold text-sm flex items-center gap-2">
@@ -136,11 +151,11 @@ export default function RequestFundsPage() {
             <button onClick={() => setIsQrModalOpen(false)} className="absolute top-6 right-6 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">
               <X className="w-5 h-5" />
             </button>
-            
+
             <div className="w-16 h-16 rounded-full bg-cyan-50 dark:bg-cyan-500/10 border border-cyan-100 dark:border-cyan-500/20 flex items-center justify-center mb-4">
               <QrCode className="w-8 h-8 text-cyan-600 dark:text-cyan-400" />
             </div>
-            
+
             <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-1">Your QR Code</h3>
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-8">Scan to pay {userData.firstName}</p>
 
@@ -149,8 +164,8 @@ export default function RequestFundsPage() {
               <img src={qrCodeUrl} alt="Personal QR Code" className="w-48 h-48 rounded-xl object-contain" />
             </div>
 
-            <button 
-              onClick={() => handleCopyLink(`https://${personalLink}`)} 
+            <button
+              onClick={() => handleCopyLink(`https://${personalLink}`)}
               className="w-full py-4 rounded-[16px] font-bold text-sm bg-slate-900 dark:bg-white text-white dark:text-slate-900 transition-transform active:scale-95 shadow-xl hover:scale-[1.02]"
             >
               Copy Payment Link
@@ -171,21 +186,21 @@ export default function RequestFundsPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
-        
+
         {/* ==========================================
             LEFT COLUMN: THE REQUEST TERMINAL
             ========================================== */}
         <div className="lg:col-span-7 space-y-6">
-          
+
           {/* Main Input Terminal */}
           <div className="bg-white dark:bg-[#0A0A0C] border border-slate-200 dark:border-white/[0.04] rounded-[32px] shadow-sm dark:shadow-2xl overflow-hidden relative group">
-            
+
             {/* Ambient Background Glow */}
             <div className="absolute top-0 right-0 w-[80%] h-[80%] bg-emerald-500/10 blur-[100px] rounded-full pointer-events-none opacity-50 dark:opacity-30 transition-colors" />
             <div className="absolute inset-0 opacity-[0.02] mix-blend-overlay pointer-events-none" style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/stardust.png")' }} />
 
             <div className="p-8 sm:p-10 relative z-10 flex flex-col items-center justify-center min-h-[380px]">
-              
+
               <span className="px-4 py-1.5 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 text-xs font-bold tracking-widest uppercase mb-8 shadow-sm">
                 Set Amount
               </span>
@@ -195,8 +210,8 @@ export default function RequestFundsPage() {
                 <span className={`text-4xl sm:text-6xl font-bold transition-colors ${requestAmount ? 'text-slate-900 dark:text-white' : 'text-slate-300 dark:text-slate-700'}`}>
                   $
                 </span>
-                <input 
-                  type="number" 
+                <input
+                  type="number"
                   step="0.01"
                   value={requestAmount}
                   onChange={(e) => setRequestAmount(e.target.value)}
@@ -211,7 +226,7 @@ export default function RequestFundsPage() {
                 <div className="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-slate-100 dark:bg-[#1a1a24] flex items-center justify-center text-slate-400">
                   <MessageSquare className="w-4 h-4" />
                 </div>
-                <input 
+                <input
                   type="text"
                   value={requestNote}
                   onChange={(e) => setRequestNote(e.target.value)}
@@ -222,7 +237,7 @@ export default function RequestFundsPage() {
 
               {/* Quick Actions Dock */}
               <div className="w-full max-w-sm mt-8">
-                <button 
+                <button
                   disabled={isSubmitting || !requestAmount}
                   onClick={handleGenerateLink}
                   className={`w-full flex items-center justify-center gap-2 py-4 rounded-[16px] font-bold text-[14px] transition-all shadow-xl ${requestAmount ? 'bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-200 text-white dark:text-slate-900 active:scale-[0.98]' : 'bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-slate-600 cursor-not-allowed'}`}
@@ -249,7 +264,7 @@ export default function RequestFundsPage() {
                 <p className="text-sm text-indigo-200/70 mt-1 leading-relaxed max-w-[280px]">
                   Share this permanent link. Anyone can pay you instantly via card or bank transfer.
                 </p>
-                
+
                 {/* The Link Pill */}
                 <div className="mt-5 inline-flex items-center gap-3 p-2 pr-4 rounded-xl bg-black/40 backdrop-blur-xl border border-white/10 shadow-inner overflow-hidden max-w-full">
                   <div className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center border border-indigo-400/20 shrink-0">
@@ -263,7 +278,7 @@ export default function RequestFundsPage() {
 
               {/* Actions Column */}
               <div className="flex sm:flex-col gap-3 shrink-0 w-full sm:w-auto">
-                <button 
+                <button
                   onClick={() => handleCopyLink(`https://${personalLink}`)}
                   className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-white hover:bg-slate-100 text-indigo-950 font-black text-[13px] transition-all active:scale-95 shadow-xl"
                 >
@@ -283,14 +298,14 @@ export default function RequestFundsPage() {
             RIGHT COLUMN: TRACKING & HISTORY
             ========================================== */}
         <div className="lg:col-span-5 space-y-6">
-          
+
           {/* Pending / Recent Requests Tracker */}
           <div className="bg-white dark:bg-[#0A0A0C] border border-slate-200 dark:border-white/[0.04] rounded-[32px] shadow-sm dark:shadow-xl overflow-hidden transition-colors flex flex-col h-full min-h-[500px]">
             <div className="p-6 border-b border-slate-100 dark:border-white/[0.04] flex items-center justify-between">
               <h3 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">Request History</h3>
               <Search className="w-4 h-4 text-slate-400" />
             </div>
-            
+
             <div className="divide-y divide-slate-100 dark:divide-white/[0.04] flex-1">
               {loading ? (
                 <div className="p-12 flex justify-center"><Loader2 className="w-6 h-6 text-cyan-500 animate-spin" /></div>
@@ -303,7 +318,7 @@ export default function RequestFundsPage() {
               ) : (
                 requests.map((req) => (
                   <div key={req.id} className="p-5 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-white/[0.01] cursor-pointer group transition-colors">
-                    
+
                     <div className="flex items-center gap-4">
                       <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${req.color || 'from-slate-500 to-slate-700'} flex items-center justify-center shadow-inner shrink-0 text-white font-bold text-lg`}>
                         {req.contactName.charAt(0)}
@@ -318,16 +333,15 @@ export default function RequestFundsPage() {
                         </p>
                       </div>
                     </div>
-                    
+
                     <div className="text-right flex flex-col items-end">
                       <p className={`text-[16px] font-black ${req.status === "Paid" ? 'text-emerald-500' : 'text-slate-900 dark:text-white'}`}>
-                        ${req.amount.toLocaleString(undefined, {minimumFractionDigits: 2})}
+                        ${req.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       </p>
-                      <span className={`mt-1.5 text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md border ${
-                          req.status === 'Pending' ? 'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-500/20' : 
-                          req.status === 'Paid' ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20' : 
-                          'bg-slate-100 dark:bg-white/5 text-slate-500 border-slate-200 dark:border-white/10'
-                      }`}>
+                      <span className={`mt-1.5 text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md border ${req.status === 'Pending' ? 'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-500/20' :
+                          req.status === 'Paid' ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20' :
+                            'bg-slate-100 dark:bg-white/5 text-slate-500 border-slate-200 dark:border-white/10'
+                        }`}>
                         {req.status}
                       </span>
                     </div>
@@ -336,7 +350,7 @@ export default function RequestFundsPage() {
                 ))
               )}
             </div>
-            
+
             {requests.length > 0 && (
               <div className="p-4 border-t border-slate-100 dark:border-white/[0.04] flex justify-center bg-slate-50/50 dark:bg-white/[0.01] mt-auto">
                 <button onClick={() => showToast("Loading full history...")} className="text-[12px] font-bold text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 transition-colors flex items-center gap-1">
