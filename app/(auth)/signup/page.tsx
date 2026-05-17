@@ -152,7 +152,7 @@ export default function SignupForm() {
   };
 
   return (
-    <>
+    <div className="pt-60">
       <style>{`
         input:-webkit-autofill,
         input:-webkit-autofill:hover, 
@@ -377,6 +377,6 @@ export default function SignupForm() {
         </div>
 
       </form>
-    </>
+    </div>
   );
 }

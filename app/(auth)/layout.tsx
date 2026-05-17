@@ -70,11 +70,12 @@ export default function AuthLayout({
     <div
       ref={containerRef}
       onMouseMove={handleMouseMove}
-      className="min-h-[100dvh] w-full bg-[#030303] flex"
+      // CRITICAL FIX: Fixed height 'h-[100dvh]' and hidden overflow on the main wrapper
+      className="h-[100dvh] w-full bg-[#030303] flex overflow-hidden"
     >
 
-      {/* --- LEFT SIDE: BRAND & VISUAL (Hidden on mobile) --- */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden flex-col justify-between p-12 border-r border-white/[0.05]">
+      {/* --- LEFT SIDE: BRAND & VISUAL (Fixed in place) --- */}
+      <div className="hidden lg:flex lg:w-1/2 h-full relative overflow-hidden flex-col justify-between p-12 border-r border-white/[0.05]">
 
         {/* Ambient Studio Lighting */}
         <div className="absolute top-[-10%] left-[-10%] w-[60vw] h-[60vh] bg-indigo-600/15 blur-[150px] rounded-full pointer-events-none z-0" />
@@ -168,13 +169,14 @@ export default function AuthLayout({
         </div>
       </div>
 
-      {/* --- RIGHT SIDE: FORM AREA (Children) --- */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12 relative overflow-hidden">
+      {/* --- RIGHT SIDE: FORM AREA (Scrollable) --- */}
+      {/* CRITICAL FIX: Added 'h-full overflow-y-auto scrollbar-hide' to make this panel scrollable */}
+      <div className="w-full lg:w-1/2 h-full overflow-y-auto flex items-center justify-center p-6 sm:p-12 relative scrollbar-hide">
 
-        {/* Mobile-only background glow */}
+        {/* Mobile-only background glow (attached to scrolling container) */}
         <div className="absolute top-0 left-0 w-full h-full bg-indigo-900/10 blur-[120px] lg:hidden pointer-events-none" />
 
-        {/* Mobile Header (Hidden on Desktop) */}
+        {/* Mobile Header (Hidden on Desktop, floats above scroll) */}
         <div className="absolute top-6 left-6 right-6 flex justify-between items-center lg:hidden z-20">
           <Link href="/" className="w-8 h-8 bg-white rounded-lg flex items-center justify-center shadow-lg">
             <span className="text-black font-black text-sm tracking-tighter">R</span>
@@ -185,7 +187,7 @@ export default function AuthLayout({
         </div>
 
         {/* The active page content (Login/Signup Form) will be injected here */}
-        <div ref={formRef} className="w-full max-w-[440px] relative z-10">
+        <div ref={formRef} className="w-full max-w-[440px] relative z-10 py-20">
           {children}
         </div>
       </div>
